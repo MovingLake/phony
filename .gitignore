@@ -1,0 +1,25 @@
+# Android
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Gradle
+.gradle/
+build/
+app/build/
+
+# Keys - never commit API keys
+secrets.properties
+*.keystore
+keystore.jks
+
+# IDE
+.idea/
+*.iml

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="fab_container" type="id" />
+    <item name="fab_icon" type="id" />
+    <item name="fab_status" type="id" />
+</resources>

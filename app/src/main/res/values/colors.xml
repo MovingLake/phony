@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <color name="phoneclaw_primary">#6750A4</color>
+    <color name="phoneclaw_primary_container">#EADDFF</color>
+    <color name="phoneclaw_secondary">#625B71</color>
+    <color name="phoneclaw_background">#0D0D0D</color>
+    <color name="phoneclaw_surface">#1C1B1F</color>
+
+    <!-- FAB states -->
+    <color name="fab_idle">#6750A4</color>
+    <color name="fab_listening">#E53935</color>
+    <color name="fab_thinking">#1565C0</color>
+    <color name="fab_acting">#2E7D32</color>
+    <color name="fab_speaking">#F57F17</color>
+    <color name="fab_error">#B71C1C</color>
+</resources>

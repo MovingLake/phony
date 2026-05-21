@@ -1,0 +1,38 @@
+<resources>
+    <string name="app_name">PhoneClaw</string>
+    <string name="accessibility_service_label">PhoneClaw AI Assistant</string>
+    <string name="accessibility_service_description">PhoneClaw uses accessibility to see your screen and perform actions on your behalf when you give voice commands. It reads screen content to understand context, taps UI elements, and types text to complete tasks you request.</string>
+    <string name="accessibility_service_summary">Voice-driven AI assistant that acts on your screen</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">PhoneClaw</string>
+    <string name="onboarding_subtitle">Your AI assistant on your phone</string>
+    <string name="gemini_api_key_label">Gemini API Key</string>
+    <string name="gemini_api_key_hint">AIza…</string>
+    <string name="save_key_button">Save &amp; Continue</string>
+    <string name="get_api_key">Get a free key at aistudio.google.com</string>
+
+    <!-- Permissions -->
+    <string name="permission_accessibility">Accessibility Service</string>
+    <string name="permission_accessibility_desc">Lets PhoneClaw see your screen and perform actions</string>
+    <string name="permission_overlay">Draw over apps</string>
+    <string name="permission_overlay_desc">Shows the floating PhoneClaw button</string>
+    <string name="permission_microphone">Microphone</string>
+    <string name="permission_microphone_desc">Listens to your voice commands</string>
+    <string name="grant_button">Grant</string>
+    <string name="granted">Granted ✓</string>
+
+    <!-- Status -->
+    <string name="status_idle">Ready</string>
+    <string name="status_listening">Listening…</string>
+    <string name="status_thinking">Thinking…</string>
+    <string name="status_acting">Working…</string>
+    <string name="status_speaking">Speaking</string>
+    <string name="status_error">Error</string>
+
+    <!-- Notification -->
+    <string name="notification_channel_name">PhoneClaw Service</string>
+    <string name="notification_channel_desc">PhoneClaw accessibility service notification</string>
+    <string name="notification_title">PhoneClaw is active</string>
+    <string name="notification_text">Tap the floating button to give a command</string>
+</resources>
