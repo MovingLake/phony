@@ -71,7 +71,7 @@ class PreferencesManager(private val context: Context) {
     }
 
     val selectedOpenAIModel: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_OPENAI_MODEL] ?: OpenAIModel.GPT_4O.modelId
+        prefs[KEY_OPENAI_MODEL] ?: OpenAIModel.GPT_4_1.modelId
     }
 
     suspend fun setOpenAIApiKey(key: String) =
@@ -92,7 +92,9 @@ enum class AIProvider(val displayName: String) {
 // ─── Model enums ────────────────────────────────────────────────────────────
 
 enum class GeminiModel(val modelId: String, val displayName: String) {
+    PRO_3_5("gemini-3.5-pro",          "Gemini 3.5 Pro (Best)"),
     FLASH_3_5("gemini-3.5-flash",      "Gemini 3.5 Flash (Recommended)"),
+    PRO_2_5("gemini-2.5-pro",          "Gemini 2.5 Pro"),
     FLASH_2_5("gemini-2.5-flash",      "Gemini 2.5 Flash"),
     FLASH_2_5_LITE("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (Fastest)"),
     ;
@@ -114,11 +116,13 @@ enum class ClaudeModel(val modelId: String, val displayName: String) {
 }
 
 enum class OpenAIModel(val modelId: String, val displayName: String) {
-    GPT_4O("gpt-4o",           "GPT-4o (Best)"),
-    GPT_4O_MINI("gpt-4o-mini", "GPT-4o Mini (Faster)"),
+    GPT_4_1("gpt-4.1",             "GPT-4.1 (Best)"),
+    GPT_4_1_MINI("gpt-4.1-mini",   "GPT-4.1 Mini"),
+    GPT_4O("gpt-4o",               "GPT-4o"),
+    GPT_4O_MINI("gpt-4o-mini",     "GPT-4o Mini (Fastest)"),
     ;
     companion object {
         fun fromId(id: String): OpenAIModel =
-            entries.firstOrNull { it.modelId == id } ?: GPT_4O
+            entries.firstOrNull { it.modelId == id } ?: GPT_4_1
     }
 }
