@@ -18,7 +18,7 @@ private const val MAX_SESSION_TURNS = 8
 
 class OpenAIClient(
     private val apiKey: String,
-    private val model: OpenAIModel = OpenAIModel.GPT_4O,
+    private val model: OpenAIModel = OpenAIModel.GPT_5_5,
     private val screenshotManager: ScreenshotManager? = null,
 ) : AIClient {
 
