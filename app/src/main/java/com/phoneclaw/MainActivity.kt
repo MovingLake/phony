@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
                 var selectedClaudeModel by remember { mutableStateOf(ClaudeModel.SONNET_4_6.modelId) }
                 // OpenAI
                 var openaiApiKey by remember { mutableStateOf("") }
-                var selectedOpenaiModel by remember { mutableStateOf(OpenAIModel.GPT_4_1.modelId) }
+                var selectedOpenaiModel by remember { mutableStateOf(OpenAIModel.GPT_5_5.modelId) }
                 // Permissions
                 var hasOverlayPerm by remember { mutableStateOf(false) }
                 var hasMicPerm by remember { mutableStateOf(false) }

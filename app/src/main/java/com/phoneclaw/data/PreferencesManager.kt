@@ -71,7 +71,7 @@ class PreferencesManager(private val context: Context) {
     }
 
     val selectedOpenAIModel: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_OPENAI_MODEL] ?: OpenAIModel.GPT_4_1.modelId
+        prefs[KEY_OPENAI_MODEL] ?: OpenAIModel.GPT_5_5.modelId
     }
 
     suspend fun setOpenAIApiKey(key: String) =
@@ -116,13 +116,13 @@ enum class ClaudeModel(val modelId: String, val displayName: String) {
 }
 
 enum class OpenAIModel(val modelId: String, val displayName: String) {
-    GPT_4_1("gpt-4.1",             "GPT-4.1 (Best)"),
-    GPT_4_1_MINI("gpt-4.1-mini",   "GPT-4.1 Mini"),
-    GPT_4O("gpt-4o",               "GPT-4o"),
-    GPT_4O_MINI("gpt-4o-mini",     "GPT-4o Mini (Fastest)"),
+    GPT_5_5("gpt-5.5",         "GPT-5.5 (Best)"),
+    GPT_5_4("gpt-5.4",         "GPT-5.4"),
+    GPT_4O("gpt-4o",           "GPT-4o"),
+    GPT_4O_MINI("gpt-4o-mini", "GPT-4o Mini (Fastest)"),
     ;
     companion object {
         fun fromId(id: String): OpenAIModel =
-            entries.firstOrNull { it.modelId == id } ?: GPT_4_1
+            entries.firstOrNull { it.modelId == id } ?: GPT_5_5
     }
 }
