@@ -119,7 +119,6 @@ enum class OpenAIModel(val modelId: String, val displayName: String) {
     GPT_5_5("gpt-5.5",             "GPT-5.5 (Best)"),
     GPT_5_4("gpt-5.4",             "GPT-5.4"),
     GPT_5_4_MINI("gpt-5.4-mini",   "GPT-5.4 Mini (Fastest)"),
-    GPT_4O_MINI("gpt-4o-mini",     "GPT-4o Mini"),
     ;
     companion object {
         fun fromId(id: String): OpenAIModel =
