@@ -14,43 +14,111 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class PreferencesManager(private val context: Context) {
 
     companion object {
-        private val KEY_GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
-        // Future: model selection, local model path, etc.
-        private val KEY_SELECTED_MODEL = stringPreferencesKey("selected_model")
+        private val KEY_SELECTED_PROVIDER  = stringPreferencesKey("selected_provider")
+        private val KEY_GEMINI_API_KEY     = stringPreferencesKey("gemini_api_key")
+        private val KEY_GEMINI_MODEL       = stringPreferencesKey("selected_model")
+        private val KEY_ANTHROPIC_API_KEY  = stringPreferencesKey("anthropic_api_key")
+        private val KEY_CLAUDE_MODEL       = stringPreferencesKey("claude_model")
+        private val KEY_OPENAI_API_KEY     = stringPreferencesKey("openai_api_key")
+        private val KEY_OPENAI_MODEL       = stringPreferencesKey("openai_model")
     }
+
+    // ── Provider ────────────────────────────────────────────────────────
+
+    val selectedProvider: Flow<AIProvider> = context.dataStore.data.map { prefs ->
+        AIProvider.entries.firstOrNull { it.name == prefs[KEY_SELECTED_PROVIDER] } ?: AIProvider.GEMINI
+    }
+
+    suspend fun setSelectedProvider(provider: AIProvider) =
+        context.dataStore.edit { it[KEY_SELECTED_PROVIDER] = provider.name }
+
+    // ── Gemini ──────────────────────────────────────────────────────────
 
     val geminiApiKey: Flow<String> = context.dataStore.data.map { prefs ->
         prefs[KEY_GEMINI_API_KEY] ?: ""
     }
 
     val selectedModel: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_SELECTED_MODEL] ?: GeminiModel.FLASH_3_5.modelId
+        prefs[KEY_GEMINI_MODEL] ?: GeminiModel.FLASH_3_5.modelId
     }
 
-    suspend fun setGeminiApiKey(key: String) {
-        context.dataStore.edit { prefs ->
-            prefs[KEY_GEMINI_API_KEY] = key.trim()
-        }
+    suspend fun setGeminiApiKey(key: String) =
+        context.dataStore.edit { it[KEY_GEMINI_API_KEY] = key.trim() }
+
+    suspend fun setSelectedModel(modelId: String) =
+        context.dataStore.edit { it[KEY_GEMINI_MODEL] = modelId }
+
+    // ── Claude ──────────────────────────────────────────────────────────
+
+    val anthropicApiKey: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ANTHROPIC_API_KEY] ?: ""
     }
 
-    suspend fun setSelectedModel(modelId: String) {
-        context.dataStore.edit { prefs ->
-            prefs[KEY_SELECTED_MODEL] = modelId
-        }
+    val selectedClaudeModel: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_CLAUDE_MODEL] ?: ClaudeModel.SONNET_4_6.modelId
     }
+
+    suspend fun setAnthropicApiKey(key: String) =
+        context.dataStore.edit { it[KEY_ANTHROPIC_API_KEY] = key.trim() }
+
+    suspend fun setClaudeModel(modelId: String) =
+        context.dataStore.edit { it[KEY_CLAUDE_MODEL] = modelId }
+
+    // ── OpenAI ──────────────────────────────────────────────────────────
+
+    val openaiApiKey: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_OPENAI_API_KEY] ?: ""
+    }
+
+    val selectedOpenAIModel: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_OPENAI_MODEL] ?: OpenAIModel.GPT_4O.modelId
+    }
+
+    suspend fun setOpenAIApiKey(key: String) =
+        context.dataStore.edit { it[KEY_OPENAI_API_KEY] = key.trim() }
+
+    suspend fun setOpenAIModel(modelId: String) =
+        context.dataStore.edit { it[KEY_OPENAI_MODEL] = modelId }
 }
 
-/** Available Gemini models. Local (Gemma) support is a future milestone. */
-enum class GeminiModel(val modelId: String, val displayName: String, val isLocal: Boolean = false) {
-    FLASH_3_5("gemini-3.5-flash", "Gemini 3.5 Flash (Recommended)"),
-    FLASH_2_5("gemini-2.5-flash", "Gemini 2.5 Flash"),
-    FLASH_2_5_LITE("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (Fastest)"),
-    // Future: local Gemma models
-    // GEMMA_LOCAL("gemma-3-1b-it", "Gemma 3 1B (Local)", isLocal = true),
-    ;
+// ─── Provider enum ──────────────────────────────────────────────────────────
 
+enum class AIProvider(val displayName: String) {
+    GEMINI("Gemini"),
+    CLAUDE("Claude"),
+    OPENAI("GPT"),
+}
+
+// ─── Model enums ────────────────────────────────────────────────────────────
+
+enum class GeminiModel(val modelId: String, val displayName: String) {
+    FLASH_3_5("gemini-3.5-flash",      "Gemini 3.5 Flash (Recommended)"),
+    FLASH_2_5("gemini-2.5-flash",      "Gemini 2.5 Flash"),
+    FLASH_2_5_LITE("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (Fastest)"),
+    ;
     companion object {
         fun fromId(id: String): GeminiModel =
             entries.firstOrNull { it.modelId == id } ?: FLASH_3_5
+    }
+}
+
+enum class ClaudeModel(val modelId: String, val displayName: String) {
+    OPUS_4_7("claude-opus-4-7",             "Claude Opus 4.7 (Best)"),
+    SONNET_4_6("claude-sonnet-4-6",         "Claude Sonnet 4.6"),
+    HAIKU_4_5("claude-haiku-4-5-20251001",  "Claude Haiku 4.5 (Fastest)"),
+    ;
+    companion object {
+        fun fromId(id: String): ClaudeModel =
+            entries.firstOrNull { it.modelId == id } ?: SONNET_4_6
+    }
+}
+
+enum class OpenAIModel(val modelId: String, val displayName: String) {
+    GPT_4O("gpt-4o",           "GPT-4o (Best)"),
+    GPT_4O_MINI("gpt-4o-mini", "GPT-4o Mini (Faster)"),
+    ;
+    companion object {
+        fun fromId(id: String): OpenAIModel =
+            entries.firstOrNull { it.modelId == id } ?: GPT_4O
     }
 }

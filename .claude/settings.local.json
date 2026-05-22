@@ -24,7 +24,8 @@
       "Bash(export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64)",
       "Bash(snap list *)",
       "Bash(apt list *)",
-      "Bash(sudo apt-get install -y openjdk-17-jdk)"
+      "Bash(sudo apt-get install -y openjdk-17-jdk)",
+      "Bash(git fetch *)"
     ]
   }
 }

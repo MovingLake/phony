@@ -1,11 +1,9 @@
 package com.phoneclaw.agent
 
-import android.graphics.Bitmap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
-import org.json.JSONObject
 
 private const val TAG = "AgentLoop"
 
@@ -20,7 +18,7 @@ private const val TAG = "AgentLoop"
  * between tasks. This mirrors nanoclaw's per-session database isolation.
  */
 class AgentLoop(
-    private val geminiClient: GeminiClient,
+    private val aiClient: AIClient,
     private val actionExecutor: ActionExecutor,
     private val screenshotManager: ScreenshotManager,
     private val onSpeak: suspend (String) -> Unit,
@@ -35,7 +33,6 @@ class AgentLoop(
     private var sessionHistory: JSONArray? = null
     private var lastTaskTime: Long = 0L
     private val SESSION_TTL_MS = 60_000L    // 1 minute
-    private val MAX_SESSION_TURNS = 8       // keep last 8 turns ≈ 4 exchanges
 
     /** Run a full task from a voice command. Suspends until the task completes. */
     suspend fun runTask(userCommand: String) {
@@ -62,8 +59,7 @@ class AgentLoop(
                 return
             }
 
-            // Pass the raw screenshot — GeminiClient handles scaling + coordinate translation
-            val (summary, updatedHistory) = geminiClient.runTask(
+            val (summary, updatedHistory) = aiClient.runTask(
                 userCommand = userCommand,
                 initialScreenshot = screenshot,
                 sessionHistory = sessionHistory,
@@ -71,9 +67,9 @@ class AgentLoop(
                 onStatusUpdate = { status -> _state.value = AgentState.Running(status) }
             )
 
-            // Strip screenshots before storing — they are ~50k tokens each and the
-            // model doesn't need to re-see old screens when resuming the session.
-            sessionHistory = trimHistory(stripImages(updatedHistory))
+            // Each client strips images and trims history before returning —
+            // store the cleaned result directly.
+            sessionHistory = updatedHistory
             lastTaskTime = System.currentTimeMillis()
 
             // Speak the final summary if it wasn't already spoken via speak_to_user
@@ -103,75 +99,6 @@ class AgentLoop(
         _state.value = AgentState.Idle
         // Keep session history on cancel so the user can rephrase immediately;
         // the TTL will clear it naturally after 1 minute of inactivity.
-    }
-
-    /**
-     * Strip all inlineData (screenshot bytes) from every turn in [history].
-     * Screenshots are huge (~50k tokens each as base64) but the model doesn't
-     * need to re-see old screens when resuming a session — text and tool
-     * call/response pairs carry enough context.
-     */
-    private fun stripImages(history: JSONArray): JSONArray {
-        val out = JSONArray()
-        for (i in 0 until history.length()) {
-            val turn = history.getJSONObject(i)
-            val parts = turn.optJSONArray("parts") ?: continue
-            val newParts = JSONArray()
-            for (j in 0 until parts.length()) {
-                val part = parts.getJSONObject(j)
-                if (!part.has("inlineData")) newParts.put(part)
-            }
-            if (newParts.length() > 0) {
-                out.put(JSONObject()
-                    .put("role", turn.getString("role"))
-                    .put("parts", newParts))
-            }
-        }
-        return out
-    }
-
-    /**
-     * Trim history to [MAX_SESSION_TURNS] and align the slice to a valid
-     * conversation boundary.
-     *
-     * Gemini API hard rules:
-     *   1. History must start with a user turn.
-     *   2. functionCall model turn → must be immediately followed by a user
-     *      functionResponse turn (nothing else in between).
-     *   3. History must end with a model turn so the next user message is valid.
-     *
-     * The only safe starting point is a user turn that contains ONLY text/image
-     * content — no functionResponse parts. Our "Updated screen" user turns contain
-     * both functionResponse and text (after stripping images), so they look like
-     * they have text but are mid-exchange and would leave the preceding functionCall
-     * dangling. Only the initial "User said:..." turn and injected nudge turns are
-     * pure text and valid anchors.
-     */
-    private fun trimHistory(history: JSONArray): JSONArray {
-        val start = if (history.length() > MAX_SESSION_TURNS)
-            history.length() - MAX_SESSION_TURNS else 0
-
-        for (i in start until history.length()) {
-            val turn = history.getJSONObject(i)
-            if (turn.optString("role") != "user") continue
-            val parts = turn.optJSONArray("parts") ?: continue
-
-            // Must have at least one text part (inlineData stripped already)
-            val hasText = (0 until parts.length()).any { j -> parts.getJSONObject(j).has("text") }
-            // Must NOT have any functionResponse parts — those turns are mid-exchange
-            val hasFunctionResponse = (0 until parts.length()).any { j ->
-                parts.getJSONObject(j).has("functionResponse")
-            }
-
-            if (!hasText || hasFunctionResponse) continue
-
-            // Found a clean pure-text user turn — valid anchor for a new session
-            val trimmed = JSONArray()
-            for (k in i until history.length()) trimmed.put(history.get(k))
-            return trimmed
-        }
-        // No valid anchor found — discard and start fresh
-        return JSONArray()
     }
 
     private suspend fun executeToolCall(toolCall: ToolCall): ToolResult {

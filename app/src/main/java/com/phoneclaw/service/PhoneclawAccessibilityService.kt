@@ -14,9 +14,14 @@ import com.phoneclaw.agent.ActionExecutor
 import com.phoneclaw.agent.AgentLoop
 import com.phoneclaw.agent.AgentState
 import com.phoneclaw.agent.AppResolver
+import com.phoneclaw.agent.ClaudeClient
 import com.phoneclaw.agent.GeminiClient
+import com.phoneclaw.agent.OpenAIClient
 import com.phoneclaw.agent.ScreenshotManager
+import com.phoneclaw.data.AIProvider
+import com.phoneclaw.data.ClaudeModel
 import com.phoneclaw.data.GeminiModel
+import com.phoneclaw.data.OpenAIModel
 import com.phoneclaw.data.PreferencesManager
 import com.phoneclaw.speech.SpeechManager
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,20 +37,6 @@ import kotlinx.coroutines.withContext
 private const val TAG = "PhoneclawService"
 private const val NOTIFICATION_ID = 1001
 
-/**
- * The heart of PhoneClaw.
- *
- * This AccessibilityService:
- *   1. Shows a foreground notification to stay alive
- *   2. Manages the floating FAB overlay
- *   3. Listens for FAB clicks → triggers STT → runs the agent loop
- *   4. Routes agent state changes back to the FAB's visual state
- *
- * Lifecycle:
- *   onServiceConnected → show FAB, start foreground notification
- *   FAB click → listen() → runTask() → speak result
- *   onInterrupt / onDestroy → tear down FAB, cancel coroutines
- */
 class PhoneclawAccessibilityService : AccessibilityService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -61,7 +53,6 @@ class PhoneclawAccessibilityService : AccessibilityService() {
     private var isListening = false
 
     companion object {
-        /** Whether the service is currently connected. Used by the UI to show status. */
         var isRunning = false
             private set
     }
@@ -77,64 +68,83 @@ class PhoneclawAccessibilityService : AccessibilityService() {
         appResolver = AppResolver(this)
         actionExecutor = ActionExecutor(this, appResolver, screenshotManager)
 
-        floatingButtonManager = FloatingButtonManager(this) {
-            onFabClicked()
-        }
+        floatingButtonManager = FloatingButtonManager(this) { onFabClicked() }
 
         startForeground(NOTIFICATION_ID, buildNotification())
         floatingButtonManager.show()
 
-        // Hide overlays before every screenshot so they don't pollute the image
         screenshotManager.onBeforeScreenshot = { floatingButtonManager.setOverlaysVisible(false) }
         screenshotManager.onAfterScreenshot  = { floatingButtonManager.setOverlaysVisible(true) }
 
-        // Initialize the agent loop with the current API key
+        // Re-initialize the agent loop whenever provider or any API key changes
         serviceScope.launch {
-            val apiKey = prefsManager.geminiApiKey.first()
-            val modelId = prefsManager.selectedModel.first()
-            if (apiKey.isNotBlank()) {
-                initAgentLoop(apiKey, modelId)
-            }
-
-            // React to API key changes (user updates key in settings while service is running)
-            prefsManager.geminiApiKey.collect { key ->
-                val model = prefsManager.selectedModel.first()
-                if (key.isNotBlank()) {
-                    initAgentLoop(key, model)
-                }
+            combine(
+                prefsManager.selectedProvider,
+                prefsManager.geminiApiKey,
+                prefsManager.anthropicApiKey,
+                prefsManager.openaiApiKey,
+            ) { provider, geminiKey, claudeKey, openaiKey ->
+                Triple(provider, geminiKey, Pair(claudeKey, openaiKey))
+            }.collect { (provider, geminiKey, otherKeys) ->
+                val (claudeKey, openaiKey) = otherKeys
+                initAgentLoop(provider, geminiKey, claudeKey, openaiKey)
             }
         }
     }
 
-    private fun initAgentLoop(apiKey: String, modelId: String) {
-        Log.d(TAG, "Initializing agent loop with model: $modelId")
-        val geminiClient = GeminiClient(
-            apiKey = apiKey,
-            model = GeminiModel.fromId(modelId),
-            screenshotManager = screenshotManager
-        )
-        agentLoop = AgentLoop(
-            geminiClient = geminiClient,
-            actionExecutor = actionExecutor,
-            screenshotManager = screenshotManager,
-            onSpeak = { message ->
-                withContext(Dispatchers.Main) {
-                    floatingButtonManager.updateState(AgentState.Running("Speaking…"))
-                    speechManager.speak(message)
-                }
-            }
-        )
-
-        // Bridge agent state → FAB visual state
+    private fun initAgentLoop(
+        provider: AIProvider,
+        geminiKey: String,
+        claudeKey: String,
+        openaiKey: String,
+    ) {
         serviceScope.launch {
-            agentLoop?.state?.collect { state ->
-                floatingButtonManager.updateState(state)
+            val geminiModel = prefsManager.selectedModel.first()
+            val claudeModel = prefsManager.selectedClaudeModel.first()
+            val openaiModel = prefsManager.selectedOpenAIModel.first()
+
+            Log.d(TAG, "Initializing agent loop — provider=$provider")
+
+            val aiClient = when (provider) {
+                AIProvider.GEMINI -> if (geminiKey.isNotBlank())
+                    GeminiClient(geminiKey, GeminiModel.fromId(geminiModel), screenshotManager)
+                else null
+                AIProvider.CLAUDE -> if (claudeKey.isNotBlank())
+                    ClaudeClient(claudeKey, ClaudeModel.fromId(claudeModel), screenshotManager)
+                else null
+                AIProvider.OPENAI -> if (openaiKey.isNotBlank())
+                    OpenAIClient(openaiKey, OpenAIModel.fromId(openaiModel), screenshotManager)
+                else null
+            }
+
+            if (aiClient == null) {
+                Log.d(TAG, "No API key set for $provider — agent loop not initialized")
+                agentLoop = null
+                return@launch
+            }
+
+            agentLoop = AgentLoop(
+                aiClient = aiClient,
+                actionExecutor = actionExecutor,
+                screenshotManager = screenshotManager,
+                onSpeak = { message ->
+                    withContext(Dispatchers.Main) {
+                        floatingButtonManager.updateState(AgentState.Running("Speaking…"))
+                        speechManager.speak(message)
+                    }
+                }
+            )
+
+            // Bridge agent state → FAB visual state
+            serviceScope.launch {
+                agentLoop?.state?.collect { state ->
+                    floatingButtonManager.updateState(state)
+                }
             }
         }
     }
 
     private fun onFabClicked() {
-        // If agent is already running, cancel it
         if (currentTaskJob?.isActive == true) {
             currentTaskJob?.cancel()
             agentLoop?.cancel()
@@ -145,22 +155,17 @@ class PhoneclawAccessibilityService : AccessibilityService() {
 
         val loop = agentLoop
         if (loop == null) {
-            // No API key set yet
             serviceScope.launch {
-                speechManager.speak("Please open PhoneClaw and enter your Gemini API key first.")
+                speechManager.speak("Please open Phony and enter an API key first.")
             }
             return
         }
 
         currentTaskJob = serviceScope.launch {
-            // Update FAB to listening state
             floatingButtonManager.updateState(AgentState.Running("Listening…"))
 
-            // Listen for voice command (STT runs on main thread)
             isListening = true
-            val command = withContext(Dispatchers.Main) {
-                speechManager.listen()
-            }
+            val command = withContext(Dispatchers.Main) { speechManager.listen() }
             isListening = false
 
             if (command.isNullOrBlank()) {
@@ -170,16 +175,11 @@ class PhoneclawAccessibilityService : AccessibilityService() {
 
             Log.d(TAG, "User command: $command")
             floatingButtonManager.updateState(AgentState.Running("Thinking…"))
-
-            // Run the agent loop
             loop.runTask(command)
         }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // We don't need to react to specific events — the agent reads the
-        // screen on demand via takeScreenshot() and rootInActiveWindow.
-    }
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
 
     override fun onInterrupt() {
         Log.d(TAG, "Service interrupted")
@@ -202,7 +202,6 @@ class PhoneclawAccessibilityService : AccessibilityService() {
             this, 0, openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
         return NotificationCompat.Builder(this, PhoneclawApp.NOTIFICATION_CHANNEL_ID)
             .setContentTitle(getString(R.string.notification_title))
             .setContentText(getString(R.string.notification_text))
