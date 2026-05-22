@@ -84,6 +84,10 @@ class PhoneclawAccessibilityService : AccessibilityService() {
         startForeground(NOTIFICATION_ID, buildNotification())
         floatingButtonManager.show()
 
+        // Hide overlays before every screenshot so they don't pollute the image
+        screenshotManager.onBeforeScreenshot = { floatingButtonManager.setOverlaysVisible(false) }
+        screenshotManager.onAfterScreenshot  = { floatingButtonManager.setOverlaysVisible(true) }
+
         // Initialize the agent loop with the current API key
         serviceScope.launch {
             val apiKey = prefsManager.geminiApiKey.first()
@@ -106,7 +110,8 @@ class PhoneclawAccessibilityService : AccessibilityService() {
         Log.d(TAG, "Initializing agent loop with model: $modelId")
         val geminiClient = GeminiClient(
             apiKey = apiKey,
-            model = GeminiModel.fromId(modelId)
+            model = GeminiModel.fromId(modelId),
+            screenshotManager = screenshotManager
         )
         agentLoop = AgentLoop(
             geminiClient = geminiClient,

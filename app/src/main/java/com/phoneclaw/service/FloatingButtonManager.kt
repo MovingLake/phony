@@ -1,15 +1,14 @@
 package com.phoneclaw.service
 
-import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.app.Service
 import android.content.Context
+import android.graphics.Color
 import android.graphics.PixelFormat
-import android.os.Build
+import android.graphics.Typeface
 import android.util.Log
 import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -17,10 +16,17 @@ import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import com.phoneclaw.BuildConfig
 import com.phoneclaw.R
 import com.phoneclaw.agent.AgentState
+import com.phoneclaw.agent.DebugLog
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 private const val TAG = "FloatingButtonManager"
 
@@ -44,6 +50,8 @@ class FloatingButtonManager(
     private var floatingView: View? = null
     private var params: WindowManager.LayoutParams? = null
     private var pulseAnimator: ValueAnimator? = null
+    private var debugView: View? = null
+    private var debugJob: Job? = null
 
     private var initialX = 0
     private var initialY = 0
@@ -77,17 +85,31 @@ class FloatingButtonManager(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to add floating view", e)
         }
+
+        // Debug panel disabled — interferes with fingerprint/sign-in overlays
+        // if (BuildConfig.DEBUG) showDebugPanel()
+    }
+
+    /**
+     * Temporarily hide/show all overlays. Called by ScreenshotManager so the
+     * FAB and debug panel don't appear in screenshots sent to Gemini.
+     */
+    fun setOverlaysVisible(visible: Boolean) {
+        val v = if (visible) View.VISIBLE else View.INVISIBLE
+        floatingView?.visibility = v
+        debugView?.visibility = v
     }
 
     fun hide() {
         floatingView?.let { view ->
-            try {
-                windowManager.removeView(view)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to remove floating view", e)
-            }
+            try { windowManager.removeView(view) } catch (e: Exception) { }
             floatingView = null
         }
+        debugView?.let { view ->
+            try { windowManager.removeView(view) } catch (e: Exception) { }
+            debugView = null
+        }
+        debugJob?.cancel()
         stopPulse()
     }
 
@@ -132,7 +154,16 @@ class FloatingButtonManager(
                     stopPulse()
                     container.setBackgroundResource(R.drawable.fab_bg_error)
                     icon.setImageResource(R.drawable.ic_error)
-                    statusText.visibility = View.GONE
+                    // Show error message on FAB + Toast for debug visibility
+                    statusText.text = state.message
+                    statusText.visibility = View.VISIBLE
+                    android.widget.Toast.makeText(context, "PhoneClaw: ${state.message}", android.widget.Toast.LENGTH_LONG).show()
+                    // Auto-clear error after 4s so FAB returns to idle
+                    view.postDelayed({
+                        statusText.visibility = View.GONE
+                        container.setBackgroundResource(R.drawable.fab_bg_idle)
+                        icon.setImageResource(R.drawable.ic_mic)
+                    }, 4000)
                 }
             }
         }
@@ -253,6 +284,51 @@ class FloatingButtonManager(
         floatingView?.let { view ->
             val container = view.findViewById<View>(R.id.fab_container)
             container?.animate()?.scaleX(1.0f)?.scaleY(1.0f)?.setDuration(150)?.start()
+        }
+    }
+
+    // ─── Debug panel (DEBUG builds only) ───────────────────────────────────
+
+    private fun showDebugPanel() {
+        val screenWidth = context.resources.displayMetrics.widthPixels
+        val screenHeight = context.resources.displayMetrics.heightPixels
+
+        val debugParams = WindowManager.LayoutParams(
+            (screenWidth * 0.92f).toInt(),
+            (screenHeight * 0.28f).toInt(),
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = 80
+        }
+
+        val scrollView = ScrollView(context)
+        val textView = TextView(context).apply {
+            setBackgroundColor(Color.argb(200, 0, 0, 0))
+            setTextColor(Color.argb(255, 180, 255, 180))
+            typeface = Typeface.MONOSPACE
+            textSize = 9.5f
+            setPadding(12, 8, 12, 8)
+        }
+        scrollView.addView(textView)
+
+        try {
+            windowManager.addView(scrollView, debugParams)
+            debugView = scrollView
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to add debug view", e)
+            return
+        }
+
+        // Collect DebugLog lines and update the text view live
+        debugJob = CoroutineScope(Dispatchers.Main).launch {
+            DebugLog.flow.collect { lines ->
+                val text = lines.takeLast(20).joinToString("\n")
+                textView.text = text
+                scrollView.post { scrollView.fullScroll(View.FOCUS_DOWN) }
+            }
         }
     }
 }

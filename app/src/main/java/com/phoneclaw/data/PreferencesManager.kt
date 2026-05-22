@@ -24,7 +24,7 @@ class PreferencesManager(private val context: Context) {
     }
 
     val selectedModel: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_SELECTED_MODEL] ?: GeminiModel.FLASH_2_0.modelId
+        prefs[KEY_SELECTED_MODEL] ?: GeminiModel.FLASH_3_5.modelId
     }
 
     suspend fun setGeminiApiKey(key: String) {
@@ -42,15 +42,15 @@ class PreferencesManager(private val context: Context) {
 
 /** Available Gemini models. Local (Gemma) support is a future milestone. */
 enum class GeminiModel(val modelId: String, val displayName: String, val isLocal: Boolean = false) {
-    FLASH_2_0("gemini-2.0-flash", "Gemini 2.0 Flash (Recommended)"),
-    FLASH_2_0_THINKING("gemini-2.0-flash-thinking-exp", "Gemini 2.0 Flash Thinking"),
-    PRO_2_0("gemini-2.0-pro-exp", "Gemini 2.0 Pro"),
+    FLASH_3_5("gemini-3.5-flash", "Gemini 3.5 Flash (Recommended)"),
+    FLASH_2_5("gemini-2.5-flash", "Gemini 2.5 Flash"),
+    FLASH_2_5_LITE("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (Fastest)"),
     // Future: local Gemma models
-    // GEMMA_2B_LOCAL("gemma-2b-it", "Gemma 2B (Local)", isLocal = true),
+    // GEMMA_LOCAL("gemma-3-1b-it", "Gemma 3 1B (Local)", isLocal = true),
     ;
 
     companion object {
         fun fromId(id: String): GeminiModel =
-            entries.firstOrNull { it.modelId == id } ?: FLASH_2_0
+            entries.firstOrNull { it.modelId == id } ?: FLASH_3_5
     }
 }

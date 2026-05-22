@@ -44,6 +44,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -59,6 +60,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.splashscreen)
+    implementation(libs.material)  // Provides Theme.Material3.DayNight.NoActionBar for XML
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

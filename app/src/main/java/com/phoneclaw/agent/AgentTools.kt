@@ -24,12 +24,13 @@ enum class ToolName(val id: String) {
     GET_SCREEN_TEXT("get_screen_text"),
     SPEAK_TO_USER("speak_to_user"),
     TASK_COMPLETE("task_complete"),
+    WAIT("wait"),
 }
 
 /** Parsed tool call from the Gemini response. */
 data class ToolCall(
     val name: ToolName,
-    val args: Map<String, Any>
+    val args: Map<String, String?>
 )
 
 /** Result of executing a tool call. */

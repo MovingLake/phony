@@ -160,8 +160,30 @@ class ActionExecutor(
         )
 
         try {
-            // Try exact match first, then partial
-            val nodes = root.findAccessibilityNodeInfosByText(text)
+            // Try progressively shorter versions of the text.
+            // Gemini often reads the full accessibility description e.g.
+            // "Search, Tab 2 of 4" but the node's .text is just "Search".
+            val candidates = buildList {
+                add(text)
+                // First segment before comma: "Search, Tab 2 of 4" → "Search"
+                if (text.contains(',')) add(text.substringBefore(',').trim())
+                // First word
+                val firstWord = text.split(' ', ',').firstOrNull { it.isNotBlank() }
+                if (firstWord != null && firstWord != text) add(firstWord)
+            }.distinct()
+
+            var nodes: List<AccessibilityNodeInfo>? = null
+            var matchedWith = text
+            for (candidate in candidates) {
+                val found = root.findAccessibilityNodeInfosByText(candidate)
+                if (!found.isNullOrEmpty()) {
+                    nodes = found
+                    matchedWith = candidate
+                    if (candidate != text) DebugLog.d(TAG, "find_and_click_text: matched '$candidate' (from '$text')")
+                    break
+                }
+            }
+
             if (nodes.isNullOrEmpty()) {
                 return ToolResult(ToolName.FIND_AND_CLICK_TEXT, false, "No element found with text: '$text'")
             }
@@ -189,7 +211,7 @@ class ActionExecutor(
                 ToolResult(
                     ToolName.FIND_AND_CLICK_TEXT,
                     success,
-                    if (success) "Clicked element with text: '$text'" else "Found element but click failed"
+                    if (success) "Clicked element '$matchedWith'" else "Found element but click failed"
                 )
             } else {
                 nodes.forEach { it.recycle() }
@@ -204,27 +226,59 @@ class ActionExecutor(
      * Extract all visible text from the accessibility node tree.
      * This is much faster than asking Gemini to OCR the screenshot.
      */
+    /**
+     * Extract all visible text from the accessibility node tree.
+     *
+     * Searches ALL accessible windows, not just rootInActiveWindow.
+     * This is essential for apps like Google Camera where the shutter button
+     * lives in a separate overlay window from the main viewfinder surface.
+     * Falls back to rootInActiveWindow if getWindows() returns nothing.
+     */
     fun getScreenText(): ToolResult {
-        val root = service.rootInActiveWindow ?: return ToolResult(
-            ToolName.GET_SCREEN_TEXT, false, "Could not get window content"
-        )
+        val text = StringBuilder()
+        var found = false
 
         try {
-            val text = StringBuilder()
-            extractText(root, text, depth = 0)
-            val result = text.toString().trim()
-            return ToolResult(
-                ToolName.GET_SCREEN_TEXT,
-                true,
-                if (result.isNotEmpty()) result else "(No text visible on screen)"
+            val windows = service.windows
+            if (!windows.isNullOrEmpty()) {
+                for (window in windows) {
+                    val root = window.root ?: continue
+                    try {
+                        // Skip PhoneClaw's own overlay — the FAB and debug panel text
+                        // ("Capturing screen… PhoneClaw AI Assistant") pollutes results.
+                        // AccessibilityWindowInfo has no packageName; check the root node instead.
+                        if (root.packageName?.toString() == service.packageName) continue
+                        extractText(root, text, depth = 0)
+                        found = true
+                    } finally {
+                        root.recycle()
+                    }
+                }
+            }
+        } catch (_: Exception) { /* getWindows() not available — fall through */ }
+
+        // Fallback to active window if getWindows() yielded nothing
+        if (!found) {
+            val root = service.rootInActiveWindow ?: return ToolResult(
+                ToolName.GET_SCREEN_TEXT, false, "Could not get window content"
             )
-        } finally {
-            root.recycle()
+            try {
+                extractText(root, text, depth = 0)
+            } finally {
+                root.recycle()
+            }
         }
+
+        val result = text.toString().trim()
+        return ToolResult(
+            ToolName.GET_SCREEN_TEXT,
+            true,
+            if (result.isNotEmpty()) result else "(No text visible on screen)"
+        )
     }
 
     private fun extractText(node: AccessibilityNodeInfo, sb: StringBuilder, depth: Int) {
-        if (depth > 30) return // Avoid infinite recursion on deep trees
+        if (depth > 50) return // Increased from 30 — camera/media apps have deep view trees
 
         val text = node.text?.toString()
         val contentDesc = node.contentDescription?.toString()
@@ -242,6 +296,13 @@ class ActionExecutor(
                 child.recycle()
             }
         }
+    }
+
+    /** Pause execution for a given number of seconds (clamped 1–10). */
+    suspend fun wait(seconds: Int): ToolResult {
+        val clamped = seconds.coerceIn(1, 10)
+        delay(clamped * 1000L)
+        return ToolResult(ToolName.WAIT, true, "Waited $clamped seconds")
     }
 
     // ─── Gesture helper ────────────────────────────────────────────────────

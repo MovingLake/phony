@@ -4,7 +4,27 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(adb devices *)",
+      "Bash(adb logcat *)",
+      "Bash(adb shell *)",
+      "Bash(./gradlew assembleDebug)",
+      "Bash(~/.gradle/wrapper/dists/gradle-8.9-bin/90cnw93cvbtalezasaz0blq0a/gradle-8.9/bin/gradle wrapper *)",
+      "Bash(java -version)",
+      "Read(//usr/lib/jvm/**)",
+      "Read(//home/andres/android-studio/jbr/bin/**)",
+      "Read(//home/andres/Android/android-studio/jbr/bin/**)",
+      "Read(//opt/**)",
+      "Bash(JAVA_HOME=/snap/android-studio/209/jbr JAVA_OPTS=\"-Xmx512m\" /snap/android-studio/209/jbr/bin/java *)",
+      "Bash(JAVA_HOME=/snap/android-studio/209/jbr ~/.gradle/wrapper/dists/gradle-8.9-bin/90cnw93cvbtalezasaz0blq0a/gradle-8.9/bin/gradle wrapper)",
+      "Bash(JAVA_HOME=/snap/android-studio/209/jbr ANDROID_HOME=/home/andres/Android/Sdk ./gradlew assembleDebug)",
+      "Bash(JAVA_HOME=/snap/android-studio/209/jbr ANDROID_HOME=/home/andres/Android/Sdk ./gradlew installDebug)",
+      "Bash(awk '/GeminiClient|AgentLoop|ActionExecutor|PhoneclawService/ && !/AccessibilityUser|ActivityThread|AppsFilter/')",
+      "Bash(export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64)",
+      "Bash(snap list *)",
+      "Bash(apt list *)",
+      "Bash(sudo apt-get install -y openjdk-17-jdk)"
     ]
   }
 }
