@@ -26,7 +26,11 @@
       "Bash(apt list *)",
       "Bash(sudo apt-get install -y openjdk-17-jdk)",
       "Bash(git fetch *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(~/Android/Sdk/platform-tools/adb logcat *)",
+      "Bash(~/Android/Sdk/platform-tools/adb -s 2A211FDH300P7N logcat -d -v time -s AgentLoop:V GeminiClient:V ClaudeClient:V OpenAIClient:V ActionExecutor:V PhoneclawService:V ScreenshotManager:V SpeechManager:V AppResolver:V)",
+      "Bash(~/Android/Sdk/platform-tools/adb -s 2A211FDH300P7N logcat -d -v time)",
+      "Bash(~/Android/Sdk/platform-tools/adb shell *)"
     ]
   }
 }

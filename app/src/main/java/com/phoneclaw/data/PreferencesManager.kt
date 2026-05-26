@@ -97,6 +97,7 @@ enum class GeminiModel(val modelId: String, val displayName: String) {
     PRO_2_5("gemini-2.5-pro",          "Gemini 2.5 Pro"),
     FLASH_2_5("gemini-2.5-flash",      "Gemini 2.5 Flash"),
     FLASH_2_5_LITE("gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite (Fastest)"),
+    FLASH_2_0("gemini-2.0-flash",      "Gemini 2.0 Flash (Free tier)"),
     ;
     companion object {
         fun fromId(id: String): GeminiModel =

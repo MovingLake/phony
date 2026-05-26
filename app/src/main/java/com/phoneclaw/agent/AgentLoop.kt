@@ -85,9 +85,22 @@ class AgentLoop(
             val errorMsg = when {
                 e.message?.contains("API_KEY") == true ->
                     "Bad API key"
+                e.message?.contains("429") == true ||
+                e.message?.contains("RESOURCE_EXHAUSTED", ignoreCase = true) == true ||
+                e.message?.contains("credits", ignoreCase = true) == true ||
+                e.message?.contains("quota", ignoreCase = true) == true ->
+                    "API credits depleted — check your billing or switch provider"
+                e.message?.contains("401") == true ||
+                e.message?.contains("403") == true ||
+                e.message?.contains("authentication", ignoreCase = true) == true ->
+                    "Invalid API key"
                 e.message?.contains("network", ignoreCase = true) == true ||
-                e.message?.contains("connect", ignoreCase = true) == true ->
+                e.message?.contains("connect", ignoreCase = true) == true ||
+                e.message?.contains("timeout", ignoreCase = true) == true ->
                     "Network error"
+                e.message?.contains("500") == true ||
+                e.message?.contains("503") == true ->
+                    "AI service unavailable — try again in a moment"
                 else ->
                     e.message?.take(80) ?: "Unknown error"
             }
